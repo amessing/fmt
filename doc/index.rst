@@ -25,7 +25,7 @@ The replacement-based Format API provides a safe alternative to ``printf``,
 ``sprintf`` and friends with comparable or `better performance
 <http://zverovich.net/2013/09/07/integer-to-string-conversion-in-cplusplus.html>`_.
 The `format string syntax <syntax.html>`_ is similar to the one used by
-`str.format <http://docs.python.org/2/library/stdtypes.html#str.format>`_
+`str.format <http://docs.python.org/3/library/stdtypes.html#str.format>`_
 in Python:
 
 .. code:: c++
@@ -142,6 +142,12 @@ For comparison, writing a wide character to ``std::ostream`` results in
 its numeric value being written to the stream (i.e. 1070 instead of letter 'ю'
 which is represented by ``L'\x42e'`` if we use Unicode) which is rarely what is
 needed.
+
+Note that fmt does not use the value of the ``errno`` global to communicate
+errors to the user, but it may call system functions which set ``errno``. Since
+fmt does not attempt to preserve the value of ``errno``, users should not make
+any assumptions about it and always set it to ``0`` before making any system
+calls that convey error information via ``errno``.
 
 .. _portability:
 
