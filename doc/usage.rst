@@ -67,13 +67,19 @@ your ``CMakeLists.txt`` file::
    add_subdirectory(fmt)
 
 or
+
 ::
 
    add_subdirectory(fmt EXCLUDE_FROM_ALL)
 
 to exclude it from ``make``, ``make all``, or ``cmake --build .``.
 
-Settting up your target to use a header-only version of ``fmt`` is equaly easy::
+You can detect and use an installed version of {fmt} as follows::
+
+   find_package(fmt)
+   target_link_libraries(<your-target> fmt::fmt)
+
+Setting up your target to use a header-only version of ``fmt`` is equaly easy::
 
    target_link_libraries(<your-target> PRIVATE fmt-header-only)
 

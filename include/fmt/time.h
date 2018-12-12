@@ -1,6 +1,6 @@
 // Formatting library for C++ - time formatting
 //
-// Copyright (c) 2012 - 2016, Victor Zverovich
+// Copyright (c) 2012 - present, Victor Zverovich
 // All rights reserved.
 //
 // For the license information refer to format.h.
@@ -10,23 +10,28 @@
 
 #include "format.h"
 #include <ctime>
+#include <locale>
 
-namespace fmt {
+FMT_BEGIN_NAMESPACE
+
+// Prevents expansion of a preceding token as a function-style macro.
+// Usage: f FMT_NOMACRO()
+#define FMT_NOMACRO
 
 namespace internal{
-inline null<> localtime_r(...) { return null<>(); }
+inline null<> localtime_r FMT_NOMACRO(...) { return null<>(); }
 inline null<> localtime_s(...) { return null<>(); }
 inline null<> gmtime_r(...) { return null<>(); }
 inline null<> gmtime_s(...) { return null<>(); }
-}
+}  // namespace internal
 
 // Thread-safe replacement for std::localtime
 inline std::tm localtime(std::time_t time) {
-  struct LocalTime {
+  struct dispatcher {
     std::time_t time_;
     std::tm tm_;
 
-    LocalTime(std::time_t t): time_(t) {}
+    dispatcher(std::time_t t): time_(t) {}
 
     bool run() {
       using namespace fmt::internal;
@@ -42,28 +47,29 @@ inline std::tm localtime(std::time_t time) {
 
     bool fallback(int res) { return res == 0; }
 
+#if !FMT_MSC_VER
     bool fallback(internal::null<>) {
       using namespace fmt::internal;
       std::tm *tm = std::localtime(&time_);
       if (tm) tm_ = *tm;
       return tm != FMT_NULL;
     }
+#endif
   };
-  LocalTime lt(time);
-  if (lt.run())
-    return lt.tm_;
+  dispatcher lt(time);
   // Too big time values may be unsupported.
-  FMT_THROW(format_error("time_t value out of range"));
-  return std::tm();
+  if (!lt.run())
+    FMT_THROW(format_error("time_t value out of range"));
+  return lt.tm_;
 }
 
 // Thread-safe replacement for std::gmtime
 inline std::tm gmtime(std::time_t time) {
-  struct GMTime {
+  struct dispatcher {
     std::time_t time_;
     std::tm tm_;
 
-    GMTime(std::time_t t): time_(t) {}
+    dispatcher(std::time_t t): time_(t) {}
 
     bool run() {
       using namespace fmt::internal;
@@ -79,25 +85,38 @@ inline std::tm gmtime(std::time_t time) {
 
     bool fallback(int res) { return res == 0; }
 
+#if !FMT_MSC_VER
     bool fallback(internal::null<>) {
       std::tm *tm = std::gmtime(&time_);
       if (tm) tm_ = *tm;
       return tm != FMT_NULL;
     }
+#endif
   };
-  GMTime gt(time);
-  if (gt.run())
-    return gt.tm_;
+  dispatcher gt(time);
   // Too big time values may be unsupported.
-  FMT_THROW(format_error("time_t value out of range"));
-  return std::tm();
+  if (!gt.run())
+    FMT_THROW(format_error("time_t value out of range"));
+  return gt.tm_;
 }
 
-template <>
-struct formatter<std::tm> {
+namespace internal {
+inline std::size_t strftime(char *str, std::size_t count, const char *format,
+                            const std::tm *time) {
+  return std::strftime(str, count, format, time);
+}
+
+inline std::size_t strftime(wchar_t *str, std::size_t count,
+                            const wchar_t *format, const std::tm *time) {
+  return std::wcsftime(str, count, format, time);
+}
+}
+
+template <typename Char>
+struct formatter<std::tm, Char> {
   template <typename ParseContext>
   auto parse(ParseContext &ctx) -> decltype(ctx.begin()) {
-    auto it = internal::null_terminating_iterator<char>(ctx);
+    auto it = internal::null_terminating_iterator<Char>(ctx);
     if (*it == ':')
       ++it;
     auto end = it;
@@ -110,12 +129,14 @@ struct formatter<std::tm> {
     return pointer_from(end);
   }
 
-  auto format(const std::tm &tm, format_context &ctx) -> decltype(ctx.begin()) {
-    internal::buffer &buf = internal::get_container(ctx.begin());
+  template <typename FormatContext>
+  auto format(const std::tm &tm, FormatContext &ctx) -> decltype(ctx.out()) {
+    basic_memory_buffer<Char> buf;
     std::size_t start = buf.size();
     for (;;) {
       std::size_t size = buf.capacity() - start;
-      std::size_t count = std::strftime(&buf[start], size, &tm_format[0], &tm);
+      std::size_t count =
+        internal::strftime(&buf[start], size, &tm_format[0], &tm);
       if (count != 0) {
         buf.resize(start + count);
         break;
@@ -130,11 +151,11 @@ struct formatter<std::tm> {
       const std::size_t MIN_GROWTH = 10;
       buf.reserve(buf.capacity() + (size > MIN_GROWTH ? size : MIN_GROWTH));
     }
-    return ctx.begin();
+    return std::copy(buf.begin(), buf.end(), ctx.out());
   }
 
-  memory_buffer tm_format;
+  basic_memory_buffer<Char> tm_format;
 };
-}
+FMT_END_NAMESPACE
 
 #endif  // FMT_TIME_H_
