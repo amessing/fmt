@@ -34,20 +34,23 @@ std::tm make_second(int s) {
   return time;
 }
 
-std::string format_tm(const std::tm &time, const char *spec,
-                      const std::locale &loc) {
-  auto &facet = std::use_facet<std::time_put<char>>(loc);
+std::string format_tm(const std::tm& time, const char* spec,
+                      const std::locale& loc) {
+  auto& facet = std::use_facet<std::time_put<char>>(loc);
   std::ostringstream os;
   os.imbue(loc);
   facet.put(os, os, ' ', &time, spec, spec + std::strlen(spec));
   return os.str();
 }
 
-#define EXPECT_TIME(spec, time, duration) { \
-    std::locale loc("ja_JP.utf8"); \
-    EXPECT_EQ(format_tm(time, spec, loc), \
+#define EXPECT_TIME(spec, time, duration)                 \
+  {                                                       \
+    std::locale loc("ja_JP.utf8");                        \
+    EXPECT_EQ(format_tm(time, spec, loc),                 \
               fmt::format(loc, "{:" spec "}", duration)); \
   }
+
+#ifndef FMT_STATIC_THOUSANDS_SEPARATOR
 
 TEST(ChronoTest, FormatDefault) {
   EXPECT_EQ("42s", fmt::format("{}", std::chrono::seconds(42)));
@@ -83,12 +86,28 @@ TEST(ChronoTest, FormatDefault) {
             fmt::format("{}", std::chrono::duration<int, std::exa>(42)));
   EXPECT_EQ("42m", fmt::format("{}", std::chrono::minutes(42)));
   EXPECT_EQ("42h", fmt::format("{}", std::chrono::hours(42)));
-  EXPECT_EQ("42[15]s",
-            fmt::format("{}",
-                        std::chrono::duration<int, std::ratio<15, 1>>(42)));
-  EXPECT_EQ("42[15/4]s",
-            fmt::format("{}",
-                        std::chrono::duration<int, std::ratio<15, 4>>(42)));
+  EXPECT_EQ(
+      "42[15]s",
+      fmt::format("{}", std::chrono::duration<int, std::ratio<15, 1>>(42)));
+  EXPECT_EQ(
+      "42[15/4]s",
+      fmt::format("{}", std::chrono::duration<int, std::ratio<15, 4>>(42)));
+}
+
+TEST(ChronoTest, Align) {
+  auto s = std::chrono::seconds(42);
+  EXPECT_EQ("42s  ", fmt::format("{:5}", s));
+  EXPECT_EQ("42s  ", fmt::format("{:{}}", s, 5));
+  EXPECT_EQ("  42s", fmt::format("{:>5}", s));
+  EXPECT_EQ("**42s**", fmt::format("{:*^7}", s));
+  EXPECT_EQ("03:25:45    ",
+            fmt::format("{:12%H:%M:%S}", std::chrono::seconds(12345)));
+  EXPECT_EQ("    03:25:45",
+            fmt::format("{:>12%H:%M:%S}", std::chrono::seconds(12345)));
+  EXPECT_EQ("~~03:25:45~~",
+            fmt::format("{:~^12%H:%M:%S}", std::chrono::seconds(12345)));
+  EXPECT_EQ("03:25:45    ",
+            fmt::format("{:{}%H:%M:%S}", std::chrono::seconds(12345), 12));
 }
 
 TEST(ChronoTest, FormatSpecs) {
@@ -116,6 +135,8 @@ TEST(ChronoTest, FormatSpecs) {
             fmt::format("{:%H:%M:%S}", std::chrono::seconds(12345)));
   EXPECT_EQ("03:25", fmt::format("{:%R}", std::chrono::seconds(12345)));
   EXPECT_EQ("03:25:45", fmt::format("{:%T}", std::chrono::seconds(12345)));
+  EXPECT_EQ("12345", fmt::format("{:%Q}", std::chrono::seconds(12345)));
+  EXPECT_EQ("s", fmt::format("{:%q}", std::chrono::seconds(12345)));
 }
 
 TEST(ChronoTest, InvalidSpecs) {
@@ -136,8 +157,6 @@ TEST(ChronoTest, InvalidSpecs) {
   EXPECT_THROW_MSG(fmt::format("{:%B}", sec), fmt::format_error, "no date");
   EXPECT_THROW_MSG(fmt::format("{:%z}", sec), fmt::format_error, "no date");
   EXPECT_THROW_MSG(fmt::format("{:%Z}", sec), fmt::format_error, "no date");
-  EXPECT_THROW_MSG(fmt::format("{:%q}", sec), fmt::format_error,
-                   "invalid format");
   EXPECT_THROW_MSG(fmt::format("{:%Eq}", sec), fmt::format_error,
                    "invalid format");
   EXPECT_THROW_MSG(fmt::format("{:%Oq}", sec), fmt::format_error,
@@ -145,13 +164,14 @@ TEST(ChronoTest, InvalidSpecs) {
 }
 
 TEST(ChronoTest, Locale) {
-  const char *loc_name = "ja_JP.utf8";
+  const char* loc_name = "ja_JP.utf8";
   bool has_locale = false;
   std::locale loc;
   try {
     loc = std::locale(loc_name);
     has_locale = true;
-  } catch (const std::runtime_error &) {}
+  } catch (const std::runtime_error&) {
+  }
   if (!has_locale) {
     fmt::print("{} locale is missing.\n", loc_name);
     return;
@@ -168,3 +188,61 @@ TEST(ChronoTest, Locale) {
   EXPECT_TIME("%r", time, sec);
   EXPECT_TIME("%p", time, sec);
 }
+
+typedef std::chrono::duration<double, std::milli> dms;
+
+TEST(ChronoTest, FormatDefaultFP) {
+  typedef std::chrono::duration<float> fs;
+  EXPECT_EQ("1.234s", fmt::format("{}", fs(1.234)));
+  typedef std::chrono::duration<float, std::milli> fms;
+  EXPECT_EQ("1.234ms", fmt::format("{}", fms(1.234)));
+  typedef std::chrono::duration<double> ds;
+  EXPECT_EQ("1.234s", fmt::format("{}", ds(1.234)));
+  EXPECT_EQ("1.234ms", fmt::format("{}", dms(1.234)));
+}
+
+TEST(ChronoTest, FormatPrecision) {
+  EXPECT_THROW_MSG(fmt::format("{:.2}", std::chrono::seconds(42)),
+                   fmt::format_error,
+                   "precision not allowed for this argument type");
+  EXPECT_EQ("1.2ms", fmt::format("{:.1}", dms(1.234)));
+  EXPECT_EQ("1.23ms", fmt::format("{:.{}}", dms(1.234), 2));
+}
+
+TEST(ChronoTest, FormatFullSpecs) {
+  EXPECT_EQ("1.2ms ", fmt::format("{:6.1}", dms(1.234)));
+  EXPECT_EQ("  1.23ms", fmt::format("{:>8.{}}", dms(1.234), 2));
+  EXPECT_EQ(" 1.2ms ", fmt::format("{:^{}.{}}", dms(1.234), 7, 1));
+  EXPECT_EQ(" 1.23ms ", fmt::format("{0:^{2}.{1}}", dms(1.234), 2, 8));
+  EXPECT_EQ("=1.234ms=", fmt::format("{:=^{}.{}}", dms(1.234), 9, 3));
+  EXPECT_EQ("*1.2340ms*", fmt::format("{:*^10.4}", dms(1.234)));
+}
+
+TEST(ChronoTest, FormatSimpleQq) {
+  typedef std::chrono::duration<float> fs;
+  EXPECT_EQ("1.234 s", fmt::format("{:%Q %q}", fs(1.234)));
+  typedef std::chrono::duration<float, std::milli> fms;
+  EXPECT_EQ("1.234 ms", fmt::format("{:%Q %q}", fms(1.234)));
+  typedef std::chrono::duration<double> ds;
+  EXPECT_EQ("1.234 s", fmt::format("{:%Q %q}", ds(1.234)));
+  EXPECT_EQ("1.234 ms", fmt::format("{:%Q %q}", dms(1.234)));
+}
+
+TEST(ChronoTest, FormatPrecisionQq) {
+  EXPECT_THROW_MSG(fmt::format("{:.2%Q %q}", std::chrono::seconds(42)),
+                   fmt::format_error,
+                   "precision not allowed for this argument type");
+  EXPECT_EQ("1.2 ms", fmt::format("{:.1%Q %q}", dms(1.234)));
+  EXPECT_EQ("1.23 ms", fmt::format("{:.{}%Q %q}", dms(1.234), 2));
+}
+
+TEST(ChronoTest, FormatFullSpecsQq) {
+  EXPECT_EQ("1.2 ms ", fmt::format("{:7.1%Q %q}", dms(1.234)));
+  EXPECT_EQ(" 1.23 ms", fmt::format("{:>8.{}%Q %q}", dms(1.234), 2));
+  EXPECT_EQ(" 1.2 ms ", fmt::format("{:^{}.{}%Q %q}", dms(1.234), 8, 1));
+  EXPECT_EQ(" 1.23 ms ", fmt::format("{0:^{2}.{1}%Q %q}", dms(1.234), 2, 9));
+  EXPECT_EQ("=1.234 ms=", fmt::format("{:=^{}.{}%Q %q}", dms(1.234), 10, 3));
+  EXPECT_EQ("*1.2340 ms*", fmt::format("{:*^11.4%Q %q}", dms(1.234)));
+}
+
+#endif  // FMT_STATIC_THOUSANDS_SEPARATOR

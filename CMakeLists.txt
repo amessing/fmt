@@ -77,10 +77,11 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
       -Wcast-align -Wnon-virtual-dtor
       -Wctor-dtor-privacy -Wdisabled-optimization
       -Winvalid-pch -Woverloaded-virtual
-      -Wno-ctor-dtor-privacy -Wno-dangling-else
-      -Wno-format-nonliteral -Wno-sign-conversion -Wno-shadow)
+      -Wconversion
+      -Wno-ctor-dtor-privacy -Wno-format-nonliteral -Wno-shadow)
   if (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.6)
-      set(PEDANTIC_COMPILE_FLAGS ${PEDANTIC_COMPILE_FLAGS} -Wnoexcept)
+      set(PEDANTIC_COMPILE_FLAGS ${PEDANTIC_COMPILE_FLAGS} -Wnoexcept
+         -Wno-dangling-else -Wno-unused-local-typedefs)
   endif ()
   if (NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0)
       set(PEDANTIC_COMPILE_FLAGS ${PEDANTIC_COMPILE_FLAGS} -Wdouble-promotion
@@ -95,7 +96,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif ()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  set(PEDANTIC_COMPILE_FLAGS -Wall -Wextra -pedantic)
+  set(PEDANTIC_COMPILE_FLAGS -Wall -Wextra -pedantic -Wconversion -Wno-sign-conversion)
   check_cxx_compiler_flag(-Wzero-as-null-pointer-constant HAS_NULLPTR_WARNING)
   if (HAS_NULLPTR_WARNING)
     set(PEDANTIC_COMPILE_FLAGS ${PEDANTIC_COMPILE_FLAGS}
@@ -142,14 +143,15 @@ endfunction()
 
 # Define the fmt library, its includes and the needed defines.
 add_headers(FMT_HEADERS chrono.h color.h core.h format.h format-inl.h locale.h
-                        ostream.h printf.h time.h ranges.h)
+                        ostream.h prepare.h printf.h time.h ranges.h)
 set(FMT_SOURCES src/format.cc)
 if (HAVE_OPEN)
   add_headers(FMT_HEADERS posix.h)
   set(FMT_SOURCES ${FMT_SOURCES} src/posix.cc)
 endif ()
 
-add_library(fmt ${FMT_SOURCES} ${FMT_HEADERS} README.rst ChangeLog.rst)
+add_library(fmt ${FMT_SOURCES} ${FMT_HEADERS} include/format README.rst
+            ChangeLog.rst)
 add_library(fmt::fmt ALIAS fmt)
 
 if (FMT_WERROR)

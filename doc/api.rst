@@ -56,6 +56,8 @@ Named arguments
 
 .. doxygenfunction:: fmt::arg(string_view, const T&)
 
+Named arguments are not supported in compile-time checks at the moment.
+
 Argument lists
 --------------
 
@@ -92,6 +94,7 @@ string checks, output iterator and user-defined type support.
 Compile-time format string checks
 ---------------------------------
 
+.. doxygendefine:: FMT_STRING
 .. doxygendefine:: fmt
 
 Formatting user-defined types
@@ -184,7 +187,7 @@ output ``operator<<`` when one is defined for a user-defined type.
 Output iterator support
 -----------------------
 
-.. doxygenfunction:: fmt::format_to(OutputIt, const S &, const Args &...)
+.. doxygenfunction:: fmt::format_to(OutputIt, const S&, const Args&...)
 .. doxygenfunction:: fmt::format_to_n(OutputIt, std::size_t, string_view, const Args&...)
 .. doxygenstruct:: fmt::format_to_n_result
    :members:
@@ -208,6 +211,8 @@ Utilities
 .. doxygenfunction:: fmt::to_string(const T&)
 
 .. doxygenfunction:: fmt::to_wstring(const T&)
+
+.. doxygenfunction:: fmt::to_string_view(basic_string_view<Char>)
 
 .. doxygenclass:: fmt::basic_memory_buffer
    :protected-members:

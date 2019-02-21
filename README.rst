@@ -16,11 +16,6 @@ It can be used as a safe and fast alternative to (s)printf and IOStreams.
 
 `Documentation <http://fmtlib.net/latest/>`__
 
-This is a development branch that implements the C++ standards proposal `P0645
-Text Formatting <http://fmtlib.net/Text%20Formatting.html>`__.
-Released versions are available from the `Releases page
-<https://github.com/fmtlib/fmt/releases>`__.
-
 Features
 --------
 
@@ -32,6 +27,8 @@ Features
 * Safe `printf implementation
   <http://fmtlib.net/latest/api.html#printf-formatting>`_ including
   the POSIX extension for positional arguments.
+* Implementation of the ISO C++ standards proposal `P0645
+  Text Formatting <http://fmtlib.net/Text%20Formatting.html>`__.
 * Support for user-defined types.
 * High speed: performance of the format API is close to that of glibc's `printf
   <http://en.cppreference.com/w/cpp/io/c/fprintf>`_ and better than the
@@ -355,12 +352,12 @@ further details see the `source
 ================= ============= ===========
 Library           Method        Run Time, s
 ================= ============= ===========
-libc              printf          1.35
-libc++            std::ostream    3.42
-fmt 534bff7       fmt::print      1.56
-tinyformat 2.0.1  tfm::printf     3.73
-Boost Format 1.54 boost::format   8.44
-Folly Format      folly::format   2.54
+libc              printf          1.01
+libc++            std::ostream    2.98
+fmt 31510cb       fmt::print      1.13
+tinyformat 2.0.1  tfm::printf     3.23
+Boost Format 1.54 boost::format   7.34
+Folly Format      folly::format   2.23
 ================= ============= ===========
 
 As you can see ``boost::format`` is much slower than the alternative methods; this
