@@ -1,4 +1,4 @@
-// Formatting library for C++ - the core API
+// Formatting library for C++ - experimental range support
 //
 // Copyright (c) 2012 - present, Victor Zverovich
 // All rights reserved.
@@ -55,21 +55,22 @@ struct formatting_tuple : formatting_base<Char> {
 namespace internal {
 
 template <typename RangeT, typename OutputIterator>
-void copy(const RangeT& range, OutputIterator out) {
+OutputIterator copy(const RangeT& range, OutputIterator out) {
   for (auto it = range.begin(), end = range.end(); it != end; ++it)
     *out++ = *it;
+  return out;
 }
 
 template <typename OutputIterator>
-void copy(const char* str, OutputIterator out) {
-  const char* p_curr = str;
-  while (*p_curr) {
-    *out++ = *p_curr++;
-  }
+OutputIterator copy(const char* str, OutputIterator out) {
+  while (*str) *out++ = *str++;
+  return out;
 }
 
-template <typename OutputIterator> void copy(char ch, OutputIterator out) {
+template <typename OutputIterator>
+OutputIterator copy(char ch, OutputIterator out) {
   *out++ = ch;
+  return out;
 }
 
 /// Return true value if T has std::string interface, like std::string_view.
@@ -81,7 +82,7 @@ template <typename T> class is_like_std_string {
 
  public:
   static FMT_CONSTEXPR_DECL const bool value =
-      !std::is_void<decltype(check<T>(FMT_NULL))>::value;
+      is_string<T>::value || !std::is_void<decltype(check<T>(FMT_NULL))>::value;
 };
 
 template <typename Char>
@@ -160,21 +161,15 @@ template <class Tuple, class F> void for_each(Tuple&& tup, F&& f) {
   for_each(indexes, std::forward<Tuple>(tup), std::forward<F>(f));
 }
 
-template <typename Arg>
-FMT_CONSTEXPR const char* format_str_quoted(
-    bool add_space, const Arg&,
-    typename std::enable_if<
-        !is_like_std_string<typename std::decay<Arg>::type>::value>::type* =
-        nullptr) {
+template <typename Arg, FMT_ENABLE_IF(!is_like_std_string<
+                                      typename std::decay<Arg>::type>::value)>
+FMT_CONSTEXPR const char* format_str_quoted(bool add_space, const Arg&) {
   return add_space ? " {}" : "{}";
 }
 
-template <typename Arg>
-FMT_CONSTEXPR const char* format_str_quoted(
-    bool add_space, const Arg&,
-    typename std::enable_if<
-        is_like_std_string<typename std::decay<Arg>::type>::value>::type* =
-        nullptr) {
+template <typename Arg, FMT_ENABLE_IF(is_like_std_string<
+                                      typename std::decay<Arg>::type>::value)>
+FMT_CONSTEXPR const char* format_str_quoted(bool add_space, const Arg&) {
   return add_space ? " \"{}\"" : "\"{}\"";
 }
 
@@ -211,12 +206,12 @@ struct formatter<
         if (formatting.add_prepostfix_space) {
           *out++ = ' ';
         }
-        internal::copy(formatting.delimiter, out);
+        out = internal::copy(formatting.delimiter, out);
       }
-      format_to(out,
-                internal::format_str_quoted(
-                    (formatting.add_delimiter_spaces && i > 0), v),
-                v);
+      out = format_to(out,
+                      internal::format_str_quoted(
+                          (formatting.add_delimiter_spaces && i > 0), v),
+                      v);
       ++i;
     }
 
@@ -268,30 +263,24 @@ struct formatter<RangeT, Char,
   template <typename FormatContext>
   typename FormatContext::iterator format(const RangeT& values,
                                           FormatContext& ctx) {
-    auto out = ctx.out();
-    internal::copy(formatting.prefix, out);
+    auto out = internal::copy(formatting.prefix, ctx.out());
     std::size_t i = 0;
     for (auto it = values.begin(), end = values.end(); it != end; ++it) {
       if (i > 0) {
-        if (formatting.add_prepostfix_space) {
-          *out++ = ' ';
-        }
-        internal::copy(formatting.delimiter, out);
+        if (formatting.add_prepostfix_space) *out++ = ' ';
+        out = internal::copy(formatting.delimiter, out);
       }
-      format_to(out,
-                internal::format_str_quoted(
-                    (formatting.add_delimiter_spaces && i > 0), *it),
-                *it);
+      out = format_to(out,
+                      internal::format_str_quoted(
+                          (formatting.add_delimiter_spaces && i > 0), *it),
+                      *it);
       if (++i > formatting.range_length_limit) {
-        format_to(out, " ... <other elements>");
+        out = format_to(out, " ... <other elements>");
         break;
       }
     }
-    if (formatting.add_prepostfix_space) {
-      *out++ = ' ';
-    }
-    internal::copy(formatting.postfix, out);
-    return ctx.out();
+    if (formatting.add_prepostfix_space) *out++ = ' ';
+    return internal::copy(formatting.postfix, out);
   }
 };
 

@@ -11,7 +11,6 @@
 
 // Include format.cc instead of format.h to test implementation.
 #include "../src/format.cc"
-#include "fmt/color.h"
 #include "fmt/printf.h"
 
 #include <algorithm>
@@ -21,14 +20,7 @@
 #include "gtest-extra.h"
 #include "util.h"
 
-#undef min
 #undef max
-
-#if FMT_HAS_CPP_ATTRIBUTE(noreturn)
-#  define FMT_NORETURN [[noreturn]]
-#else
-#  define FMT_NORETURN
-#endif
 
 using fmt::internal::fp;
 
@@ -96,14 +88,59 @@ TEST(FPTest, GetCachedPower) {
     EXPECT_LE(exp, fp.e);
     int dec_exp_step = 8;
     EXPECT_LE(fp.e, exp + dec_exp_step * log2(10));
-    EXPECT_DOUBLE_EQ(pow(10, dec_exp), ldexp(fp.f, fp.e));
+    EXPECT_DOUBLE_EQ(pow(10, dec_exp), ldexp(static_cast<double>(fp.f), fp.e));
   }
 }
 
-TEST(FPTest, Grisu2FormatCompilesWithNonIEEEDouble) {
+TEST(FPTest, GetRoundDirection) {
+  using fmt::internal::get_round_direction;
+  EXPECT_EQ(fmt::internal::down, get_round_direction(100, 50, 0));
+  EXPECT_EQ(fmt::internal::up, get_round_direction(100, 51, 0));
+  EXPECT_EQ(fmt::internal::down, get_round_direction(100, 40, 10));
+  EXPECT_EQ(fmt::internal::up, get_round_direction(100, 60, 10));
+  for (int i = 41; i < 60; ++i)
+    EXPECT_EQ(fmt::internal::unknown, get_round_direction(100, i, 10));
+  uint64_t max = std::numeric_limits<uint64_t>::max();
+  EXPECT_THROW(get_round_direction(100, 100, 0), assertion_failure);
+  EXPECT_THROW(get_round_direction(100, 0, 100), assertion_failure);
+  EXPECT_THROW(get_round_direction(100, 0, 50), assertion_failure);
+  // Check that remainder + error doesn't overflow.
+  EXPECT_EQ(fmt::internal::up, get_round_direction(max, max - 1, 2));
+  // Check that 2 * (remainder + error) doesn't overflow.
+  EXPECT_EQ(fmt::internal::unknown,
+            get_round_direction(max, max / 2 + 1, max / 2));
+  // Check that remainder - error doesn't overflow.
+  EXPECT_EQ(fmt::internal::unknown, get_round_direction(100, 40, 41));
+  // Check that 2 * (remainder - error) doesn't overflow.
+  EXPECT_EQ(fmt::internal::up, get_round_direction(max, max - 1, 1));
+}
+
+TEST(FPTest, FixedHandler) {
+  struct handler : fmt::internal::fixed_handler {
+    char buffer[10];
+    handler(int prec = 0) : fmt::internal::fixed_handler() {
+      buf = buffer;
+      precision = prec;
+    }
+  };
+  int exp = 0;
+  handler().on_digit('0', 100, 99, 0, exp, false);
+  EXPECT_THROW(handler().on_digit('0', 100, 100, 0, exp, false),
+               assertion_failure);
+  namespace digits = fmt::internal::digits;
+  EXPECT_EQ(handler(1).on_digit('0', 100, 10, 10, exp, false), digits::done);
+  // Check that divisor - error doesn't overflow.
+  EXPECT_EQ(handler(1).on_digit('0', 100, 10, 101, exp, false), digits::error);
+  // Check that 2 * error doesn't overflow.
+  uint64_t max = std::numeric_limits<uint64_t>::max();
+  EXPECT_EQ(handler(1).on_digit('0', max, 10, max - 1, exp, false),
+            digits::error);
+}
+
+TEST(FPTest, GrisuFormatCompilesWithNonIEEEDouble) {
   fmt::memory_buffer buf;
   int exp = 0;
-  grisu2_format(4.2f, buf, fmt::core_format_specs(), exp);
+  grisu_format(4.2f, buf, -1, false, exp);
 }
 
 template <typename T> struct ValueExtractor : fmt::internal::function<T> {
@@ -201,74 +238,27 @@ TEST(FormatTest, CountCodePoints) {
   EXPECT_EQ(4, fmt::internal::count_code_points(fmt::u8string_view("ёжик")));
 }
 
-TEST(ColorsTest, ColorsPrint) {
-  EXPECT_WRITE(stdout, fmt::print(fg(fmt::rgb(255, 20, 30)), "rgb(255,20,30)"),
-               "\x1b[38;2;255;020;030mrgb(255,20,30)\x1b[0m");
-  EXPECT_WRITE(stdout, fmt::print(fg(fmt::color::blue), "blue"),
-               "\x1b[38;2;000;000;255mblue\x1b[0m");
-  EXPECT_WRITE(
-      stdout,
-      fmt::print(fg(fmt::color::blue) | bg(fmt::color::red), "two color"),
-      "\x1b[38;2;000;000;255m\x1b[48;2;255;000;000mtwo color\x1b[0m");
-  EXPECT_WRITE(stdout, fmt::print(fmt::emphasis::bold, "bold"),
-               "\x1b[1mbold\x1b[0m");
-  EXPECT_WRITE(stdout, fmt::print(fmt::emphasis::italic, "italic"),
-               "\x1b[3mitalic\x1b[0m");
-  EXPECT_WRITE(stdout, fmt::print(fmt::emphasis::underline, "underline"),
-               "\x1b[4munderline\x1b[0m");
-  EXPECT_WRITE(stdout,
-               fmt::print(fmt::emphasis::strikethrough, "strikethrough"),
-               "\x1b[9mstrikethrough\x1b[0m");
-  EXPECT_WRITE(
-      stdout,
-      fmt::print(fg(fmt::color::blue) | fmt::emphasis::bold, "blue/bold"),
-      "\x1b[1m\x1b[38;2;000;000;255mblue/bold\x1b[0m");
-  EXPECT_WRITE(stderr, fmt::print(stderr, fmt::emphasis::bold, "bold error"),
-               "\x1b[1mbold error\x1b[0m");
-  EXPECT_WRITE(stderr, fmt::print(stderr, fg(fmt::color::blue), "blue log"),
-               "\x1b[38;2;000;000;255mblue log\x1b[0m");
-  EXPECT_WRITE(stdout, fmt::print(fmt::text_style(), "hi"), "hi");
-  EXPECT_WRITE(stdout, fmt::print(fg(fmt::terminal_color::red), "tred"),
-               "\x1b[31mtred\x1b[0m");
-  EXPECT_WRITE(stdout, fmt::print(bg(fmt::terminal_color::cyan), "tcyan"),
-               "\x1b[46mtcyan\x1b[0m");
-  EXPECT_WRITE(stdout,
-               fmt::print(fg(fmt::terminal_color::bright_green), "tbgreen"),
-               "\x1b[92mtbgreen\x1b[0m");
-  EXPECT_WRITE(stdout,
-               fmt::print(bg(fmt::terminal_color::bright_magenta), "tbmagenta"),
-               "\x1b[105mtbmagenta\x1b[0m");
+// Tests fmt::internal::count_digits for integer type Int.
+template <typename Int> void test_count_digits() {
+  for (Int i = 0; i < 10; ++i) EXPECT_EQ(1u, fmt::internal::count_digits(i));
+  for (Int i = 1, n = 1, end = std::numeric_limits<Int>::max() / 10; n <= end;
+       ++i) {
+    n *= 10;
+    EXPECT_EQ(i, fmt::internal::count_digits(n - 1));
+    EXPECT_EQ(i + 1, fmt::internal::count_digits(n));
+  }
 }
 
-TEST(ColorsTest, ColorsFormat) {
-  EXPECT_EQ(fmt::format(fg(fmt::rgb(255, 20, 30)), "rgb(255,20,30)"),
-            "\x1b[38;2;255;020;030mrgb(255,20,30)\x1b[0m");
-  EXPECT_EQ(fmt::format(fg(fmt::color::blue), "blue"),
-            "\x1b[38;2;000;000;255mblue\x1b[0m");
-  EXPECT_EQ(
-      fmt::format(fg(fmt::color::blue) | bg(fmt::color::red), "two color"),
-      "\x1b[38;2;000;000;255m\x1b[48;2;255;000;000mtwo color\x1b[0m");
-  EXPECT_EQ(fmt::format(fmt::emphasis::bold, "bold"), "\x1b[1mbold\x1b[0m");
-  EXPECT_EQ(fmt::format(fmt::emphasis::italic, "italic"),
-            "\x1b[3mitalic\x1b[0m");
-  EXPECT_EQ(fmt::format(fmt::emphasis::underline, "underline"),
-            "\x1b[4munderline\x1b[0m");
-  EXPECT_EQ(fmt::format(fmt::emphasis::strikethrough, "strikethrough"),
-            "\x1b[9mstrikethrough\x1b[0m");
-  EXPECT_EQ(
-      fmt::format(fg(fmt::color::blue) | fmt::emphasis::bold, "blue/bold"),
-      "\x1b[1m\x1b[38;2;000;000;255mblue/bold\x1b[0m");
-  EXPECT_EQ(fmt::format(fmt::emphasis::bold, "bold error"),
-            "\x1b[1mbold error\x1b[0m");
-  EXPECT_EQ(fmt::format(fg(fmt::color::blue), "blue log"),
-            "\x1b[38;2;000;000;255mblue log\x1b[0m");
-  EXPECT_EQ(fmt::format(fmt::text_style(), "hi"), "hi");
-  EXPECT_EQ(fmt::format(fg(fmt::terminal_color::red), "tred"),
-            "\x1b[31mtred\x1b[0m");
-  EXPECT_EQ(fmt::format(bg(fmt::terminal_color::cyan), "tcyan"),
-            "\x1b[46mtcyan\x1b[0m");
-  EXPECT_EQ(fmt::format(fg(fmt::terminal_color::bright_green), "tbgreen"),
-            "\x1b[92mtbgreen\x1b[0m");
-  EXPECT_EQ(fmt::format(bg(fmt::terminal_color::bright_magenta), "tbmagenta"),
-            "\x1b[105mtbmagenta\x1b[0m");
+TEST(UtilTest, CountDigits) {
+  test_count_digits<uint32_t>();
+  test_count_digits<uint64_t>();
+}
+
+TEST(UtilTest, WriteUIntPtr) {
+  fmt::memory_buffer buf;
+  fmt::writer writer(buf);
+  writer.write_pointer(fmt::internal::bit_cast<fmt::internal::uintptr_t>(
+                           reinterpret_cast<void*>(0xface)),
+                       FMT_NULL);
+  EXPECT_EQ("0xface", to_string(buf));
 }

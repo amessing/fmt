@@ -198,10 +198,10 @@ class prepared_format {
     return it.count();
   }
 
-  template <typename OutputIt>
-  inline typename std::enable_if<internal::is_output_iterator<OutputIt>::value,
-                                 format_to_n_result<OutputIt>>::type
-  format_to_n(OutputIt out, unsigned n, const Args&... args) const {
+  template <typename OutputIt,
+            FMT_ENABLE_IF(internal::is_output_iterator<OutputIt>::value)>
+  inline format_to_n_result<OutputIt> format_to_n(OutputIt out, unsigned n,
+                                                  const Args&... args) const {
     format_arg_store<typename format_to_n_context<OutputIt, char_type>::type,
                      Args...>
     as(args...);
@@ -216,18 +216,16 @@ class prepared_format {
 
   std::basic_string<char_type> format(const Args&... args) const {
     basic_memory_buffer<char_type> buffer;
-    typedef back_insert_range<internal::basic_buffer<char_type>> range;
+    typedef back_insert_range<internal::buffer<char_type>> range;
     this->vformat_to(range(buffer), make_args_checked(format_, args...));
     return to_string(buffer);
   }
 
-  template <typename Container>
-  inline typename std::enable_if<is_contiguous<Container>::value,
-                                 std::back_insert_iterator<Container>>::type
-  format_to(std::back_insert_iterator<Container> out,
-            const Args&... args) const {
+  template <typename Container, FMT_ENABLE_IF(is_contiguous<Container>::value)>
+  inline std::back_insert_iterator<Container> format_to(
+      std::back_insert_iterator<Container> out, const Args&... args) const {
     internal::container_buffer<Container> buffer(internal::get_container(out));
-    typedef back_insert_range<internal::basic_buffer<char_type>> range;
+    typedef back_insert_range<internal::buffer<char_type>> range;
     this->vformat_to(range(buffer), make_args_checked(format_, args...));
     return out;
   }
@@ -243,7 +241,7 @@ class prepared_format {
   template <std::size_t SIZE = inline_buffer_size>
   inline typename buffer_context<char_type>::type::iterator format_to(
       basic_memory_buffer<char_type, SIZE>& buf, const Args&... args) const {
-    typedef back_insert_range<internal::basic_buffer<char_type>> range;
+    typedef back_insert_range<internal::buffer<char_type>> range;
     return this->vformat_to(range(buf), make_args_checked(format_, args...));
   }
 
@@ -312,7 +310,7 @@ class prepared_format {
       const format_part_t& part) const {
     const auto view = to_string_view(format_);
     const auto specification_begin = view.data() + part.end_of_argument_id;
-    parse_ctx.advance_to(specification_begin);
+    advance_to(parse_ctx, specification_begin);
   }
 
   template <typename Range, typename Context, typename Id>

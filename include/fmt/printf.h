@@ -16,6 +16,10 @@
 FMT_BEGIN_NAMESPACE
 namespace internal {
 
+// A helper function to suppress bogus "conditional expression is constant"
+// warnings.
+template <typename T> inline T const_check(T value) { return value; }
+
 // Checks if a value fits in int - used to avoid warnings about comparing
 // signed and unsigned integers.
 template <bool IsSigned> struct int_checker {
@@ -36,17 +40,15 @@ template <> struct int_checker<true> {
 
 class printf_precision_handler : public function<int> {
  public:
-  template <typename T>
-  typename std::enable_if<std::is_integral<T>::value, int>::type operator()(
-      T value) {
+  template <typename T, FMT_ENABLE_IF(std::is_integral<T>::value)>
+  int operator()(T value) {
     if (!int_checker<std::numeric_limits<T>::is_signed>::fits_in_int(value))
       FMT_THROW(format_error("number is too big"));
-    return static_cast<int>(value);
+    return (std::max)(static_cast<int>(value), 0);
   }
 
-  template <typename T>
-  typename std::enable_if<!std::is_integral<T>::value, int>::type operator()(
-      T) {
+  template <typename T, FMT_ENABLE_IF(!std::is_integral<T>::value)>
+  int operator()(T) {
     FMT_THROW(format_error("precision is not integer"));
     return 0;
   }
@@ -55,15 +57,13 @@ class printf_precision_handler : public function<int> {
 // An argument visitor that returns true iff arg is a zero integer.
 class is_zero_int : public function<bool> {
  public:
-  template <typename T>
-  typename std::enable_if<std::is_integral<T>::value, bool>::type operator()(
-      T value) {
+  template <typename T, FMT_ENABLE_IF(std::is_integral<T>::value)>
+  bool operator()(T value) {
     return value == 0;
   }
 
-  template <typename T>
-  typename std::enable_if<!std::is_integral<T>::value, bool>::type operator()(
-      T) {
+  template <typename T, FMT_ENABLE_IF(!std::is_integral<T>::value)>
+  bool operator()(T) {
     return false;
   }
 };
@@ -88,9 +88,8 @@ class arg_converter : public function<void> {
     if (type_ != 's') operator()<bool>(value);
   }
 
-  template <typename U>
-  typename std::enable_if<std::is_integral<U>::value>::type operator()(
-      U value) {
+  template <typename U, FMT_ENABLE_IF(std::is_integral<U>::value)>
+  void operator()(U value) {
     bool is_signed = type_ == 'd' || type_ == 'i';
     typedef typename std::conditional<std::is_same<T, void>::value, U, T>::type
         TargetType;
@@ -117,10 +116,8 @@ class arg_converter : public function<void> {
     }
   }
 
-  template <typename U>
-  typename std::enable_if<!std::is_integral<U>::value>::type operator()(U) {
-    // No coversion needed for non-integral types.
-  }
+  template <typename U, FMT_ENABLE_IF(!std::is_integral<U>::value)>
+  void operator()(U) {}  // No conversion needed for non-integral types.
 };
 
 // Converts an integer argument to T for printf, if T is an integral type.
@@ -140,17 +137,14 @@ template <typename Context> class char_converter : public function<void> {
  public:
   explicit char_converter(basic_format_arg<Context>& arg) : arg_(arg) {}
 
-  template <typename T>
-  typename std::enable_if<std::is_integral<T>::value>::type operator()(
-      T value) {
+  template <typename T, FMT_ENABLE_IF(std::is_integral<T>::value)>
+  void operator()(T value) {
     typedef typename Context::char_type Char;
     arg_ = internal::make_arg<Context>(static_cast<Char>(value));
   }
 
-  template <typename T>
-  typename std::enable_if<!std::is_integral<T>::value>::type operator()(T) {
-    // No coversion needed for non-integral types.
-  }
+  template <typename T, FMT_ENABLE_IF(!std::is_integral<T>::value)>
+  void operator()(T) {}  // No conversion needed for non-integral types.
 };
 
 // Checks if an argument is a valid printf width specifier and sets
@@ -165,9 +159,8 @@ class printf_width_handler : public function<unsigned> {
  public:
   explicit printf_width_handler(format_specs& spec) : spec_(spec) {}
 
-  template <typename T>
-  typename std::enable_if<std::is_integral<T>::value, unsigned>::type
-  operator()(T value) {
+  template <typename T, FMT_ENABLE_IF(std::is_integral<T>::value)>
+  unsigned operator()(T value) {
     typedef typename internal::int_traits<T>::main_type UnsignedType;
     UnsignedType width = static_cast<UnsignedType>(value);
     if (internal::is_negative(value)) {
@@ -179,16 +172,15 @@ class printf_width_handler : public function<unsigned> {
     return static_cast<unsigned>(width);
   }
 
-  template <typename T>
-  typename std::enable_if<!std::is_integral<T>::value, unsigned>::type
-  operator()(T) {
+  template <typename T, FMT_ENABLE_IF(!std::is_integral<T>::value)>
+  unsigned operator()(T) {
     FMT_THROW(format_error("width is not integer"));
     return 0;
   }
 };
 
 template <typename Char, typename Context>
-void printf(basic_buffer<Char>& buf, basic_string_view<Char> format,
+void printf(buffer<Char>& buf, basic_string_view<Char> format,
             basic_format_args<Context> args) {
   Context(std::back_inserter(buf), format, args).format();
 }
@@ -205,10 +197,7 @@ using internal::printf;  // For printing into memory_buffer.
 
 template <typename Range> class printf_arg_formatter;
 
-template <typename OutputIt, typename Char,
-          typename ArgFormatter = printf_arg_formatter<
-              back_insert_range<internal::basic_buffer<Char>>>>
-class basic_printf_context;
+template <typename OutputIt, typename Char> class basic_printf_context;
 
 /**
   \rst
@@ -220,12 +209,13 @@ class printf_arg_formatter
     : public internal::function<
           typename internal::arg_formatter_base<Range>::iterator>,
       public internal::arg_formatter_base<Range> {
+ public:
+  typedef decltype(internal::declval<Range>().begin()) iterator;
+
  private:
   typedef typename Range::value_type char_type;
-  typedef decltype(internal::declval<Range>().begin()) iterator;
   typedef internal::arg_formatter_base<Range> base;
-  typedef basic_printf_context<iterator, char_type, printf_arg_formatter>
-      context_type;
+  typedef basic_printf_context<iterator, char_type> context_type;
 
   context_type& context_;
 
@@ -252,9 +242,8 @@ class printf_arg_formatter
   printf_arg_formatter(iterator iter, format_specs& spec, context_type& ctx)
       : base(Range(iter), &spec, internal::locale_ref()), context_(ctx) {}
 
-  template <typename T>
-  typename std::enable_if<std::is_integral<T>::value, iterator>::type
-  operator()(T value) {
+  template <typename T, FMT_ENABLE_IF(std::is_integral<T>::value)>
+  iterator operator()(T value) {
     // MSVC2013 fails to compile separate overloads for bool and char_type so
     // use std::is_same instead.
     if (std::is_same<T, bool>::value) {
@@ -275,9 +264,8 @@ class printf_arg_formatter
     return this->out();
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_floating_point<T>::value, iterator>::type
-  operator()(T value) {
+  template <typename T, FMT_ENABLE_IF(std::is_floating_point<T>::value)>
+  iterator operator()(T value) {
     return base::operator()(value);
   }
 
@@ -338,8 +326,7 @@ template <typename T> struct printf_formatter {
 };
 
 /** This template formats data and writes the output to a writer. */
-template <typename OutputIt, typename Char, typename ArgFormatter>
-class basic_printf_context {
+template <typename OutputIt, typename Char> class basic_printf_context {
  public:
   /** The character type for the output. */
   typedef Char char_type;
@@ -389,13 +376,15 @@ class basic_printf_context {
   }
 
   /** Formats stored arguments and writes the output to the range. */
+  template <typename ArgFormatter =
+                printf_arg_formatter<back_insert_range<internal::buffer<Char>>>>
   OutputIt format();
 };
 
-template <typename OutputIt, typename Char, typename AF>
-void basic_printf_context<OutputIt, Char, AF>::parse_flags(format_specs& spec,
-                                                           const Char*& it,
-                                                           const Char* end) {
+template <typename OutputIt, typename Char>
+void basic_printf_context<OutputIt, Char>::parse_flags(format_specs& spec,
+                                                       const Char*& it,
+                                                       const Char* end) {
   for (; it != end; ++it) {
     switch (*it) {
     case '-':
@@ -419,9 +408,9 @@ void basic_printf_context<OutputIt, Char, AF>::parse_flags(format_specs& spec,
   }
 }
 
-template <typename OutputIt, typename Char, typename AF>
-typename basic_printf_context<OutputIt, Char, AF>::format_arg
-basic_printf_context<OutputIt, Char, AF>::get_arg(unsigned arg_index) {
+template <typename OutputIt, typename Char>
+typename basic_printf_context<OutputIt, Char>::format_arg
+basic_printf_context<OutputIt, Char>::get_arg(unsigned arg_index) {
   if (arg_index == std::numeric_limits<unsigned>::max())
     arg_index = parse_ctx_.next_arg_id();
   else
@@ -429,8 +418,8 @@ basic_printf_context<OutputIt, Char, AF>::get_arg(unsigned arg_index) {
   return internal::get_arg(*this, arg_index);
 }
 
-template <typename OutputIt, typename Char, typename AF>
-unsigned basic_printf_context<OutputIt, Char, AF>::parse_header(
+template <typename OutputIt, typename Char>
+unsigned basic_printf_context<OutputIt, Char>::parse_header(
     const Char*& it, const Char* end, format_specs& spec) {
   unsigned arg_index = std::numeric_limits<unsigned>::max();
   char_type c = *it;
@@ -467,8 +456,9 @@ unsigned basic_printf_context<OutputIt, Char, AF>::parse_header(
   return arg_index;
 }
 
-template <typename OutputIt, typename Char, typename AF>
-OutputIt basic_printf_context<OutputIt, Char, AF>::format() {
+template <typename OutputIt, typename Char>
+template <typename ArgFormatter>
+OutputIt basic_printf_context<OutputIt, Char>::format() {
   auto out = this->out();
   const Char* start = parse_ctx_.begin();
   const Char* end = parse_ctx_.end();
@@ -568,7 +558,6 @@ OutputIt basic_printf_context<OutputIt, Char, AF>::format() {
         spec.type = 'd';
         break;
       case 'c':
-        // TODO: handle wchar_t better?
         visit_format_arg(internal::char_converter<basic_printf_context>(arg),
                          arg);
         break;
@@ -578,7 +567,7 @@ OutputIt basic_printf_context<OutputIt, Char, AF>::format() {
     start = it;
 
     // Format argument.
-    visit_format_arg(AF(out, spec, *this), arg);
+    visit_format_arg(ArgFormatter(out, spec, *this), arg);
   }
   return std::copy(start, it, out);
 }
@@ -589,19 +578,11 @@ template <typename Buffer> struct basic_printf_context_t {
       type;
 };
 
-typedef basic_printf_context_t<internal::buffer>::type printf_context;
-typedef basic_printf_context_t<internal::wbuffer>::type wprintf_context;
+typedef basic_printf_context_t<internal::buffer<char>>::type printf_context;
+typedef basic_printf_context_t<internal::buffer<wchar_t>>::type wprintf_context;
 
 typedef basic_format_args<printf_context> printf_args;
 typedef basic_format_args<wprintf_context> wprintf_args;
-
-template <typename OutputIt, typename Char = typename OutputIt::value_type>
-struct basic_printf_n_context_t {
-  typedef fmt::internal::truncating_iterator<OutputIt> OutputIter;
-  typedef output_range<OutputIter, Char> Range;
-  typedef basic_printf_context<OutputIter, Char, printf_arg_formatter<Range>>
-      type;
-};
 
 /**
   \rst
@@ -631,23 +612,11 @@ template <typename S, typename Char = FMT_CHAR(S)>
 inline std::basic_string<Char> vsprintf(
     const S& format,
     basic_format_args<
-        typename basic_printf_context_t<internal::basic_buffer<Char>>::type>
+        typename basic_printf_context_t<internal::buffer<Char>>::type>
         args) {
   basic_memory_buffer<Char> buffer;
   printf(buffer, to_string_view(format), args);
   return to_string(buffer);
-}
-
-template <typename OutputIt, typename S, typename Char = FMT_CHAR(S)>
-inline typename std::enable_if<internal::is_output_iterator<OutputIt>::value,
-                               format_to_n_result<OutputIt>>::type
-vsnprintf(
-    OutputIt out, std::size_t n, const S& format,
-    basic_format_args<typename basic_printf_n_context_t<OutputIt, Char>::type>
-        args) {
-  typedef internal::truncating_iterator<OutputIt> It;
-  auto it = printf(It(out, n), to_string_view(format), args);
-  return {it.base(), it.count()};
 }
 
 /**
@@ -659,50 +628,22 @@ vsnprintf(
     std::string message = fmt::sprintf("The answer is %d", 42);
   \endrst
 */
-template <typename S, typename... Args>
-inline FMT_ENABLE_IF_T(internal::is_string<S>::value,
-                       std::basic_string<FMT_CHAR(S)>)
-    sprintf(const S& format, const Args&... args) {
+template <typename S, typename... Args,
+          FMT_ENABLE_IF(internal::is_string<S>::value)>
+inline std::basic_string<FMT_CHAR(S)> sprintf(const S& format,
+                                              const Args&... args) {
   internal::check_format_string<Args...>(format);
-  typedef internal::basic_buffer<FMT_CHAR(S)> buffer;
+  typedef internal::buffer<FMT_CHAR(S)> buffer;
   typedef typename basic_printf_context_t<buffer>::type context;
   format_arg_store<context, Args...> as{args...};
   return vsprintf(to_string_view(format), basic_format_args<context>(as));
-}
-
-/**
-  \rst
-  Formats arguments for up to ``n`` characters stored through output iterator
-  ``out``. The function returns the updated iterator and the untruncated amount
-  of characters.
-
-  **Example**::
-    std::vector<char> out;
-
-    typedef fmt::format_to_n_result<
-      std::back_insert_iterator<std::vector<char>>> res;
-    res Res = fmt::snprintf(std::back_inserter(out), 5, "The answer is %d", 42);
-  \endrst
-*/
-template <typename OutputIt, typename S, typename... Args>
-inline FMT_ENABLE_IF_T(internal::is_string<S>::value&&
-                           internal::is_output_iterator<OutputIt>::value,
-                       format_to_n_result<OutputIt>)
-    snprintf(OutputIt out, std::size_t n, const S& format,
-             const Args&... args) {
-  internal::check_format_string<Args...>(format);
-  typedef FMT_CHAR(S) Char;
-  typedef typename basic_printf_n_context_t<OutputIt, Char>::type context;
-  format_arg_store<context, Args...> as{args...};
-  return vsnprintf(out, n, to_string_view(format),
-                   basic_format_args<context>(as));
 }
 
 template <typename S, typename Char = FMT_CHAR(S)>
 inline int vfprintf(
     std::FILE* f, const S& format,
     basic_format_args<
-        typename basic_printf_context_t<internal::basic_buffer<Char>>::type>
+        typename basic_printf_context_t<internal::buffer<Char>>::type>
         args) {
   basic_memory_buffer<Char> buffer;
   printf(buffer, to_string_view(format), args);
@@ -721,11 +662,11 @@ inline int vfprintf(
     fmt::fprintf(stderr, "Don't %s!", "panic");
   \endrst
  */
-template <typename S, typename... Args>
-inline FMT_ENABLE_IF_T(internal::is_string<S>::value, int)
-    fprintf(std::FILE* f, const S& format, const Args&... args) {
+template <typename S, typename... Args,
+          FMT_ENABLE_IF(internal::is_string<S>::value)>
+inline int fprintf(std::FILE* f, const S& format, const Args&... args) {
   internal::check_format_string<Args...>(format);
-  typedef internal::basic_buffer<FMT_CHAR(S)> buffer;
+  typedef internal::buffer<FMT_CHAR(S)> buffer;
   typedef typename basic_printf_context_t<buffer>::type context;
   format_arg_store<context, Args...> as{args...};
   return vfprintf(f, to_string_view(format), basic_format_args<context>(as));
@@ -735,7 +676,7 @@ template <typename S, typename Char = FMT_CHAR(S)>
 inline int vprintf(
     const S& format,
     basic_format_args<
-        typename basic_printf_context_t<internal::basic_buffer<Char>>::type>
+        typename basic_printf_context_t<internal::buffer<Char>>::type>
         args) {
   return vfprintf(stdout, to_string_view(format), args);
 }
@@ -749,11 +690,11 @@ inline int vprintf(
     fmt::printf("Elapsed time: %.2f seconds", 1.23);
   \endrst
  */
-template <typename S, typename... Args>
-inline FMT_ENABLE_IF_T(internal::is_string<S>::value, int)
-    printf(const S& format_str, const Args&... args) {
+template <typename S, typename... Args,
+          FMT_ENABLE_IF(internal::is_string<S>::value)>
+inline int printf(const S& format_str, const Args&... args) {
   internal::check_format_string<Args...>(format_str);
-  typedef internal::basic_buffer<FMT_CHAR(S)> buffer;
+  typedef internal::buffer<FMT_CHAR(S)> buffer;
   typedef typename basic_printf_context_t<buffer>::type context;
   format_arg_store<context, Args...> as{args...};
   return vprintf(to_string_view(format_str), basic_format_args<context>(as));
@@ -763,12 +704,24 @@ template <typename S, typename Char = FMT_CHAR(S)>
 inline int vfprintf(
     std::basic_ostream<Char>& os, const S& format,
     basic_format_args<
-        typename basic_printf_context_t<internal::basic_buffer<Char>>::type>
+        typename basic_printf_context_t<internal::buffer<Char>>::type>
         args) {
   basic_memory_buffer<Char> buffer;
   printf(buffer, to_string_view(format), args);
   internal::write(os, buffer);
   return static_cast<int>(buffer.size());
+}
+
+/** Formats arguments and writes the output to the range. */
+template <typename ArgFormatter, typename Char,
+          typename Context =
+              basic_printf_context<typename ArgFormatter::iterator, Char>>
+typename ArgFormatter::iterator vprintf(internal::buffer<Char>& out,
+                                        basic_string_view<Char> format_str,
+                                        basic_format_args<Context> args) {
+  typename ArgFormatter::iterator iter(out);
+  Context(iter, format_str, args).template format<ArgFormatter>();
+  return iter;
 }
 
 /**
@@ -780,12 +733,12 @@ inline int vfprintf(
     fmt::fprintf(cerr, "Don't %s!", "panic");
   \endrst
  */
-template <typename S, typename... Args>
-inline FMT_ENABLE_IF_T(internal::is_string<S>::value, int)
-    fprintf(std::basic_ostream<FMT_CHAR(S)>& os, const S& format_str,
-            const Args&... args) {
+template <typename S, typename... Args,
+          FMT_ENABLE_IF(internal::is_string<S>::value)>
+inline int fprintf(std::basic_ostream<FMT_CHAR(S)>& os, const S& format_str,
+                   const Args&... args) {
   internal::check_format_string<Args...>(format_str);
-  typedef internal::basic_buffer<FMT_CHAR(S)> buffer;
+  typedef internal::buffer<FMT_CHAR(S)> buffer;
   typedef typename basic_printf_context_t<buffer>::type context;
   format_arg_store<context, Args...> as{args...};
   return vfprintf(os, to_string_view(format_str),

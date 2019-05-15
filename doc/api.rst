@@ -10,7 +10,7 @@ The {fmt} library API consists of the following parts:
   facilities and a lightweight subset of formatting functions
 * :ref:`fmt/format.h <format-api>`: the full format API providing compile-time
   format string checks, output iterator and user-defined type support
-* :ref:`fmt/time.h <time-api>`: date and time formatting
+* :ref:`fmt/chrono.h <chrono-api>`: date and time formatting
 * :ref:`fmt/ostream.h <ostream-api>`: ``std::ostream`` support
 * :ref:`fmt/printf.h <printf-api>`: ``printf`` formatting
 
@@ -54,7 +54,7 @@ participate in an overload resolution if the latter is not a string.
 Named arguments
 ---------------
 
-.. doxygenfunction:: fmt::arg(string_view, const T&)
+.. doxygenfunction:: fmt::arg(const S&, const T&)
 
 Named arguments are not supported in compile-time checks at the moment.
 
@@ -115,7 +115,7 @@ template and implement ``parse`` and ``format`` methods::
 
     template <typename FormatContext>
     auto format(const point &p, FormatContext &ctx) {
-      return format_to(ctx.begin(), "({:.1f}, {:.1f})", p.x, p.y);
+      return format_to(ctx.out(), "({:.1f}, {:.1f})", p.x, p.y);
     }
   };
   }
@@ -129,7 +129,7 @@ Then you can pass objects of type ``point`` to any formatting function::
 In the example above the ``formatter<point>::parse`` function ignores the
 contents of the format string referred to by ``ctx.begin()`` so the object will
 always be formatted in the same way. See ``formatter<tm>::parse`` in
-:file:`fmt/time.h` for an advanced example of how to parse the format string and
+:file:`fmt/chrono.h` for an advanced example of how to parse the format string and
 customize the formatted output.
 
 You can also reuse existing formatters, for example::
@@ -314,7 +314,7 @@ custom argument formatter class::
 .. doxygenclass:: fmt::arg_formatter
    :members:
 
-.. _time-api:
+.. _chrono-api:
 
 Date and time formatting
 ========================
@@ -323,7 +323,7 @@ The library supports `strftime
 <http://en.cppreference.com/w/cpp/chrono/c/strftime>`_-like date and time
 formatting::
 
-  #include <fmt/time.h>
+  #include <fmt/chrono.h>
 
   std::time_t t = std::time(nullptr);
   // Prints "The date is 2016-04-29." (with the current date)

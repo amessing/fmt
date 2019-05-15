@@ -5,6 +5,10 @@
 //
 // For the license information refer to format.h.
 
+#ifdef WIN32
+#  define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include "fmt/chrono.h"
 #include "gtest-extra.h"
 
@@ -41,6 +45,53 @@ std::string format_tm(const std::tm& time, const char* spec,
   os.imbue(loc);
   facet.put(os, os, ' ', &time, spec, spec + std::strlen(spec));
   return os.str();
+}
+
+TEST(TimeTest, Format) {
+  std::tm tm = std::tm();
+  tm.tm_year = 116;
+  tm.tm_mon = 3;
+  tm.tm_mday = 25;
+  EXPECT_EQ("The date is 2016-04-25.",
+            fmt::format("The date is {:%Y-%m-%d}.", tm));
+}
+
+TEST(TimeTest, GrowBuffer) {
+  std::string s = "{:";
+  for (int i = 0; i < 30; ++i) s += "%c";
+  s += "}\n";
+  std::time_t t = std::time(FMT_NULL);
+  fmt::format(s, *std::localtime(&t));
+}
+
+TEST(TimeTest, FormatToEmptyContainer) {
+  std::string s;
+  auto time = std::tm();
+  time.tm_sec = 42;
+  fmt::format_to(std::back_inserter(s), "{:%S}", time);
+  EXPECT_EQ(s, "42");
+}
+
+TEST(TimeTest, EmptyResult) { EXPECT_EQ("", fmt::format("{}", std::tm())); }
+
+static bool EqualTime(const std::tm& lhs, const std::tm& rhs) {
+  return lhs.tm_sec == rhs.tm_sec && lhs.tm_min == rhs.tm_min &&
+         lhs.tm_hour == rhs.tm_hour && lhs.tm_mday == rhs.tm_mday &&
+         lhs.tm_mon == rhs.tm_mon && lhs.tm_year == rhs.tm_year &&
+         lhs.tm_wday == rhs.tm_wday && lhs.tm_yday == rhs.tm_yday &&
+         lhs.tm_isdst == rhs.tm_isdst;
+}
+
+TEST(TimeTest, LocalTime) {
+  std::time_t t = std::time(FMT_NULL);
+  std::tm tm = *std::localtime(&t);
+  EXPECT_TRUE(EqualTime(tm, fmt::localtime(t)));
+}
+
+TEST(TimeTest, GMTime) {
+  std::time_t t = std::time(FMT_NULL);
+  std::tm tm = *std::gmtime(&t);
+  EXPECT_TRUE(EqualTime(tm, fmt::gmtime(t)));
 }
 
 #define EXPECT_TIME(spec, time, duration)                 \
@@ -243,6 +294,34 @@ TEST(ChronoTest, FormatFullSpecsQq) {
   EXPECT_EQ(" 1.23 ms ", fmt::format("{0:^{2}.{1}%Q %q}", dms(1.234), 2, 9));
   EXPECT_EQ("=1.234 ms=", fmt::format("{:=^{}.{}%Q %q}", dms(1.234), 10, 3));
   EXPECT_EQ("*1.2340 ms*", fmt::format("{:*^11.4%Q %q}", dms(1.234)));
+}
+
+TEST(ChronoTest, InvalidWidthId) {
+  EXPECT_THROW(fmt::format("{:{o}", std::chrono::seconds(0)),
+               fmt::format_error);
+}
+
+TEST(ChronoTest, InvalidColons) {
+  EXPECT_THROW(fmt::format("{0}=:{0::", std::chrono::seconds(0)),
+               fmt::format_error);
+}
+
+TEST(ChronoTest, SpecialDurations) {
+  EXPECT_EQ(
+      "40.",
+      fmt::format("{:%S}", std::chrono::duration<double>(1e20)).substr(0, 3));
+  EXPECT_EQ("-00:01",
+            fmt::format("{:%M:%S}", std::chrono::duration<double>(-1)));
+  auto nan = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_EQ(
+      "nan nan nan nan.nan nan:nan nan",
+      fmt::format("{:%I %H %M %S %R %r}", std::chrono::duration<double>(nan)));
+  fmt::format("{:%S}",
+              std::chrono::duration<float, std::atto>(1.79400457e+31f));
+  EXPECT_EQ(fmt::format("{}", std::chrono::duration<float, std::exa>(1)),
+            "1Es");
+  EXPECT_EQ(fmt::format("{}", std::chrono::duration<float, std::atto>(1)),
+            "1as");
 }
 
 #endif  // FMT_STATIC_THOUSANDS_SEPARATOR
