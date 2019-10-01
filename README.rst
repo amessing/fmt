@@ -11,26 +11,29 @@
    :alt: Ask questions at StackOverflow with the tag fmt
    :target: http://stackoverflow.com/questions/tagged/fmt
 
+.. image:: https://oss-fuzz-build-logs.storage.googleapis.com/badges/libfmt.svg
+   :alt: fmt is continuously fuzzed att oss-fuzz
+   :target: https://bugs.chromium.org/p/oss-fuzz/issues/list?colspec=ID%20Type%20Component%20Status%20Proj%20Reported%20Owner%20Summary&q=proj%3Dfmt&can=1
+
 **{fmt}** is an open-source formatting library for C++.
 It can be used as a safe and fast alternative to (s)printf and iostreams.
 
-`Documentation <http://fmtlib.net/latest/>`__
+`Documentation <https://fmt.dev/latest/>`__
 
 Q&A: ask questions on `StackOverflow with the tag fmt <http://stackoverflow.com/questions/tagged/fmt>`_.
 
 Features
 --------
 
-* Replacement-based `format API <http://fmtlib.net/dev/api.html>`_ with
+* Replacement-based `format API <https://fmt.dev/dev/api.html>`_ with
   positional arguments for localization.
-* `Format string syntax <http://fmtlib.net/dev/syntax.html>`_ similar to the one
-  of `str.format <https://docs.python.org/2/library/stdtypes.html#str.format>`_
+* `Format string syntax <https://fmt.dev/dev/syntax.html>`_ similar to the one
+  of `str.format <https://docs.python.org/3/library/stdtypes.html#str.format>`_
   in Python.
 * Safe `printf implementation
-  <http://fmtlib.net/latest/api.html#printf-formatting>`_ including
+  <https://fmt.dev/latest/api.html#printf-formatting>`_ including
   the POSIX extension for positional arguments.
-* Implementation of the ISO C++ standards proposal `P0645
-  Text Formatting <http://fmtlib.net/Text%20Formatting.html>`__.
+* Implementation of `C++20 std::format <https://fmt.dev/Text%20Formatting.html>`__.
 * Support for user-defined types.
 * High performance: faster than common standard library implementations of
   `printf <http://en.cppreference.com/w/cpp/io/c/fprintf>`_ and
@@ -40,21 +43,21 @@ Features
   consists of just three header files, ``core.h``, ``format.h`` and
   ``format-inl.h``) and compiled code. See `Compile time and code bloat`_.
 * Reliability: the library has an extensive set of `unit tests
-  <https://github.com/fmtlib/fmt/tree/master/test>`_.
+  <https://github.com/fmtlib/fmt/tree/master/test>`_ and is continuously fuzzed.
 * Safety: the library is fully type safe, errors in format strings can be
   reported at compile time, automatic memory management prevents buffer overflow
   errors.
 * Ease of use: small self-contained code base, no external dependencies,
-  permissive BSD `license
+  permissive MIT `license
   <https://github.com/fmtlib/fmt/blob/master/LICENSE.rst>`_
-* `Portability <http://fmtlib.net/latest/index.html#portability>`_ with
+* `Portability <https://fmt.dev/latest/index.html#portability>`_ with
   consistent output across platforms and support for older compilers.
 * Clean warning-free codebase even on high warning levels
   (``-Wall -Wextra -pedantic``).
 * Support for wide strings.
 * Optional header-only configuration enabled with the ``FMT_HEADER_ONLY`` macro.
 
-See the `documentation <http://fmtlib.net/latest/>`_ for more details.
+See the `documentation <https://fmt.dev/latest/>`_ for more details.
 
 Examples
 --------
@@ -107,7 +110,7 @@ Use {fmt} as a safe portable replacement for ``itoa``
     // access the string with to_string(buf) or buf.data()
 
 Format objects of user-defined types via a simple `extension API
-<http://fmtlib.net/latest/api.html#formatting-user-defined-types>`_:
+<https://fmt.dev/latest/api.html#formatting-user-defined-types>`_:
 
 .. code:: c++
 
@@ -132,8 +135,8 @@ Format objects of user-defined types via a simple `extension API
     // s == "The date is 2012-12-9"
 
 Create your own functions similar to `format
-<http://fmtlib.net/latest/api.html#format>`_ and
-`print <http://fmtlib.net/latest/api.html#print>`_
+<https://fmt.dev/latest/api.html#format>`_ and
+`print <https://fmt.dev/latest/api.html#print>`_
 which take arbitrary arguments (`godbolt <https://godbolt.org/g/MHjHVf>`_):
 
 .. code:: c++
@@ -185,7 +188,7 @@ formatting (`dtoa-benchmark <https://github.com/fmtlib/dtoa-benchmark>`_)
 and as fast as `double-conversion <https://github.com/google/double-conversion>`_:
 
 .. image:: https://user-images.githubusercontent.com/576385/54883977-9fe8c000-4e28-11e9-8bde-272d122e7c52.jpg
-   :target: http://fmtlib.net/unknown_mac64_clang10.0.html
+   :target: https://fmt.dev/unknown_mac64_clang10.0.html
 
 Compile time and code bloat
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -244,7 +247,7 @@ Running the tests
 Please refer to `Building the library`__ for the instructions on how to build
 the library and run the unit tests.
 
-__ http://fmtlib.net/latest/usage.html#building-the-library
+__ https://fmt.dev/latest/usage.html#building-the-library
 
 Benchmarks reside in a separate repository,
 `format-benchmarks <https://github.com/fmtlib/format-benchmark>`_,
@@ -278,6 +281,8 @@ Projects using this library
 * `Celestia <https://celestia.space/>`_: Real-time 3D visualization of space
 
 * `Ceph <https://ceph.com/>`_: A scalable distributed storage system
+
+* `ccache <https://ccache.dev/>`_: A compiler cache
 
 * `CUAUV <http://cuauv.org/>`_: Cornell University's autonomous underwater
   vehicle
@@ -344,7 +349,7 @@ Projects using this library
 * `TrinityCore <https://github.com/TrinityCore/TrinityCore>`_: Open-source
   MMORPG framework
 
-`More... <https://github.com/search?q=cppformat&type=Code>`_
+`More... <https://github.com/search?q=fmtlib&type=Code>`_
 
 If you are aware of other projects using this library, please let me know
 by `email <mailto:victor.zverovich@gmail.com>`_ or by submitting an
@@ -470,11 +475,11 @@ A: use ``std::tuple``:
 License
 -------
 
-{fmt} is distributed under the BSD `license
+{fmt} is distributed under the MIT `license
 <https://github.com/fmtlib/fmt/blob/master/LICENSE.rst>`_.
 
 The `Format String Syntax
-<http://fmtlib.net/latest/syntax.html>`_
+<https://fmt.dev/latest/syntax.html>`_
 section in the documentation is based on the one from Python `string module
 documentation <https://docs.python.org/3/library/string.html#module-string>`_
 adapted for the current library. For this reason the documentation is
@@ -503,7 +508,7 @@ Some ideas used in the implementation are borrowed from `Loki
 <http://clang.llvm.org/doxygen/classclang_1_1Diagnostic.html>`_ in
 `Clang <http://clang.llvm.org/>`_.
 Format string syntax and the documentation are based on Python's `str.format
-<http://docs.python.org/2/library/stdtypes.html#str.format>`_.
+<https://docs.python.org/3/library/stdtypes.html#str.format>`_.
 Thanks `Doug Turnbull <https://github.com/softwaredoug>`_ for his valuable
 comments and contribution to the design of the type-safe API and
 `Gregory Czajkowski <https://github.com/gcflymoto>`_ for implementing binary
