@@ -131,11 +131,11 @@ FMT_END_NAMESPACE
 #endif
 
 #ifndef FMT_USE_UDL_TEMPLATE
-// EDG front end based compilers (icc, nvcc) do not support UDL templates yet
-// and GCC 9 warns about them.
+// EDG front end based compilers (icc, nvcc) and GCC < 6.4 do not propertly
+// support UDL templates and GCC >= 9 warns about them.
 #  if FMT_USE_USER_DEFINED_LITERALS && FMT_ICC_VERSION == 0 && \
       FMT_CUDA_VERSION == 0 &&                                 \
-      ((FMT_GCC_VERSION >= 600 && FMT_GCC_VERSION <= 900 &&    \
+      ((FMT_GCC_VERSION >= 604 && FMT_GCC_VERSION <= 900 &&    \
         __cplusplus >= 201402L) ||                             \
        FMT_CLANG_VERSION >= 304)
 #    define FMT_USE_UDL_TEMPLATE 1
@@ -312,7 +312,7 @@ template <typename It> class is_output_iterator {
   using type = decltype(test<It>(typename iterator_category<It>::type{}));
 
  public:
-  static const bool value = !std::is_const<remove_reference_t<type>>::value;
+  enum { value = !std::is_const<remove_reference_t<type>>::value };
 };
 
 // A workaround for std::string not having mutable data() until C++17.

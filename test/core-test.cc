@@ -402,8 +402,12 @@ TEST(ArgTest, VisitInvalidArg) {
   fmt::visit_format_arg(visitor, arg);
 }
 
+TEST(StringViewTest, ValueType) {
+  static_assert(std::is_same<string_view::value_type, char>::value, "");
+}
+
 TEST(StringViewTest, Length) {
-  // Test that StringRef::size() returns string length, not buffer size.
+  // Test that string_view::size() returns string length, not buffer size.
   char str[100] = "some string";
   EXPECT_EQ(std::strlen(str), string_view(str).size());
   EXPECT_LT(std::strlen(str), sizeof(str));
@@ -465,6 +469,10 @@ struct convertible_to_int {
   operator int() const { return 42; }
 };
 
+struct convertible_to_c_string {
+  operator const char*() const { return "foo"; }
+};
+
 FMT_BEGIN_NAMESPACE
 template <> struct formatter<convertible_to_int> {
   auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
@@ -474,10 +482,21 @@ template <> struct formatter<convertible_to_int> {
     return std::copy_n("foo", 3, ctx.out());
   }
 };
+
+template <> struct formatter<convertible_to_c_string> {
+  auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+    return ctx.begin();
+  }
+  auto format(convertible_to_c_string, format_context& ctx)
+      -> decltype(ctx.out()) {
+    return std::copy_n("bar", 3, ctx.out());
+  }
+};
 FMT_END_NAMESPACE
 
 TEST(CoreTest, FormatterOverridesImplicitConversion) {
   EXPECT_EQ(fmt::format("{}", convertible_to_int()), "foo");
+  EXPECT_EQ(fmt::format("{}", convertible_to_c_string()), "bar");
 }
 
 namespace my_ns {

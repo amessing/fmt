@@ -64,7 +64,9 @@ join(FMT_VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.
 
 # message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+if (NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+endif ()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
   "${CMAKE_CURRENT_SOURCE_DIR}/support/cmake")
@@ -72,7 +74,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
 include(cxx14)
 include(CheckCXXCompilerFlag)
 
-set(FMT_REQUIRED_FEATURES cxx_auto_type cxx_variadic_templates)
+list(FIND CMAKE_CXX_COMPILE_FEATURES "cxx_variadic_templates" index)
+if (${index} GREATER -1)
+  # Use cxx_variadic_templates instead of more appropriate cxx_std_11 for
+  # compatibility with older CMake versions.
+  set(FMT_REQUIRED_FEATURES cxx_variadic_templates)
+endif ()
+message(STATUS "Required features: ${FMT_REQUIRED_FEATURES}")
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   set(PEDANTIC_COMPILE_FLAGS -pedantic-errors -Wall -Wextra -pedantic
@@ -177,9 +185,17 @@ target_include_directories(fmt PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
+set(FMT_DEBUG_POSTFIX d)
+
 set_target_properties(fmt PROPERTIES
   VERSION ${FMT_VERSION} SOVERSION ${CPACK_PACKAGE_VERSION_MAJOR}
-  DEBUG_POSTFIX d)
+  DEBUG_POSTFIX ${FMT_DEBUG_POSTFIX})
+
+# Set FMT_LIB_NAME for pkg-config fmt.pc.
+get_target_property(FMT_LIB_NAME fmt OUTPUT_NAME)
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+  set(FMT_LIB_NAME ${FMT_LIB_NAME}${FMT_DEBUG_POSTFIX})
+endif ()
 
 if (BUILD_SHARED_LIBS)
   if (UNIX AND NOT APPLE AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "SunOS")
