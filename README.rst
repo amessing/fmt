@@ -17,8 +17,12 @@
    :alt: Ask questions at StackOverflow with the tag fmt
    :target: https://stackoverflow.com/questions/tagged/fmt
 
-**{fmt}** is an open-source formatting library for C++.
-It can be used as a safe and fast alternative to (s)printf and iostreams.
+**{fmt}** is an open-source formatting library providing a fast and safe
+alternative to C stdio and C++ iostreams.
+
+If you like this project, please consider donating to BYSOL,
+an initiative to help victims of political repressions in Belarus:
+https://www.facebook.com/donate/759400044849707/108388587646909/.
 
 `Documentation <https://fmt.dev>`__
 
@@ -36,6 +40,8 @@ Features
   <https://en.cppreference.com/w/cpp/utility/format>`__
 * `Format string syntax <https://fmt.dev/latest/syntax.html>`_ similar to Python's
   `format <https://docs.python.org/3/library/stdtypes.html#str.format>`_
+* Fast IEEE 754 floating-point formatter with correct rounding, shortness and
+  round-trip guarantees.
 * Safe `printf implementation
   <https://fmt.dev/latest/api.html#printf-formatting>`_ including the POSIX
   extension for positional arguments
@@ -195,13 +201,14 @@ or equivalent is filled 2,000,000 times with output sent to ``/dev/null``; for
 further details refer to the `source
 <https://github.com/fmtlib/format-benchmark/blob/master/tinyformat_test.cpp>`_.
 
-{fmt} is up to 10x faster than ``std::ostringstream`` and ``sprintf`` on
+{fmt} is up to 20-30x faster than ``std::ostringstream`` and ``sprintf`` on
 floating-point formatting (`dtoa-benchmark <https://github.com/fmtlib/dtoa-benchmark>`_)
-and faster than `double-conversion <https://github.com/google/double-conversion>`_:
+and faster than `double-conversion <https://github.com/google/double-conversion>`_ and
+`ryu <https://github.com/ulfjack/ryu>`_:
 
 .. image:: https://user-images.githubusercontent.com/576385/
-           69767160-cdaca400-112f-11ea-9fc5-347c9f83caad.png
-   :target: https://fmt.dev/unknown_mac64_clang10.0.html
+           95684665-11719600-0ba8-11eb-8e5b-972ff4e49428.png
+   :target: https://fmt.dev/unknown_mac64_clang12.0.html
 
 Compile time and code bloat
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -347,6 +354,9 @@ Projects using this library
   associative database
   
 * `Quill <https://github.com/odygrd/quill>`_: Asynchronous low-latency logging library
+
+* `QKW <https://github.com/ravijanjam/qkw>`_: Generalizing aliasing to simplify
+  navigation, and executing complex multi-line terminal command sequences
 
 * `readpe <https://bitbucket.org/sys_dev/readpe>`_: Read Portable Executable
 

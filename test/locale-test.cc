@@ -52,6 +52,7 @@ TEST(LocaleTest, Format) {
   EXPECT_EQ("1234567", fmt::format(std::locale(), "{:L}", 1234567));
   EXPECT_EQ("1~234~567", fmt::format(loc, "{:L}", 1234567));
   EXPECT_EQ("-1~234~567", fmt::format(loc, "{:L}", -1234567));
+  EXPECT_EQ("-256", fmt::format(loc, "{:L}", -256));
   fmt::format_arg_store<fmt::format_context, int> as{1234567};
   EXPECT_EQ("1~234~567", fmt::vformat(loc, "{:L}", fmt::format_args(as)));
   std::string s;
@@ -151,10 +152,9 @@ FMT_END_NAMESPACE
 
 TEST(FormatTest, Complex) {
   std::string s = fmt::format("{}", std::complex<double>(1, 2));
-  // We might want to drop trailing zeros for consistency with to_chars.
-  EXPECT_EQ(s, "(1.0+2.0i)");
+  EXPECT_EQ(s, "(1+2i)");
   EXPECT_EQ(fmt::format("{:.2f}", std::complex<double>(1, 2)), "(1.00+2.00i)");
-  EXPECT_EQ(fmt::format("{:12}", std::complex<double>(1, 2)), "  (1.0+2.0i)");
+  EXPECT_EQ(fmt::format("{:8}", std::complex<double>(1, 2)), "  (1+2i)");
 }
 
 #endif  // FMT_STATIC_THOUSANDS_SEPARATOR
