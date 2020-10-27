@@ -23,6 +23,11 @@ int format_float(char* buf, std::size_t size, const char* format, int precision,
   return precision < 0 ? snprintf_ptr(buf, size, format, value)
                        : snprintf_ptr(buf, size, format, precision, value);
 }
+
+template dragonbox::decimal_fp<float> dragonbox::to_decimal(float x)
+    FMT_NOEXCEPT;
+template dragonbox::decimal_fp<double> dragonbox::to_decimal(double x)
+    FMT_NOEXCEPT;
 }  // namespace detail
 
 template struct FMT_INSTANTIATION_DEF_API detail::basic_data<void>;
@@ -44,9 +49,9 @@ template FMT_API char detail::decimal_point_impl(locale_ref);
 
 template FMT_API void detail::buffer<char>::append(const char*, const char*);
 
-template FMT_API FMT_BUFFER_CONTEXT(char)::iterator detail::vformat_to(
+template FMT_API void detail::vformat_to(
     detail::buffer<char>&, string_view,
-    basic_format_args<FMT_BUFFER_CONTEXT(char)>);
+    basic_format_args<FMT_BUFFER_CONTEXT(char)>, detail::locale_ref);
 
 template FMT_API int detail::snprintf_float(double, int, detail::float_specs,
                                             detail::buffer<char>&);
