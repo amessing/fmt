@@ -45,6 +45,7 @@ template <typename Char> struct small_grouping : std::numpunct<Char> {
 TEST(LocaleTest, DoubleDecimalPoint) {
   std::locale loc(std::locale(), new numpunct<char>());
   EXPECT_EQ("1?23", fmt::format(loc, "{:L}", 1.23));
+  EXPECT_EQ("1?230000", fmt::format(loc, "{:Lf}", 1.23));
 }
 
 TEST(LocaleTest, Format) {
@@ -72,8 +73,13 @@ TEST(LocaleTest, Format) {
 }
 
 TEST(LocaleTest, FormatDetaultAlign) {
-  std::locale special_grouping_loc(std::locale(), new special_grouping<char>());
-  EXPECT_EQ("  12,345", fmt::format(special_grouping_loc, "{:8L}", 12345));
+  auto loc = std::locale({}, new special_grouping<char>());
+  EXPECT_EQ("  12,345", fmt::format(loc, "{:8L}", 12345));
+}
+
+TEST(LocaleTest, FormatPlus) {
+  auto loc = std::locale({}, new special_grouping<char>());
+  EXPECT_EQ("+100", fmt::format(loc, "{:+L}", 100));
 }
 
 TEST(LocaleTest, WFormat) {
@@ -115,7 +121,7 @@ template <class charT> struct formatter<std::complex<double>, charT> {
   detail::dynamic_format_specs<char> specs_;
 
  public:
-  typename basic_format_parse_context<charT>::iterator parse(
+  FMT_CONSTEXPR typename basic_format_parse_context<charT>::iterator parse(
       basic_format_parse_context<charT>& ctx) {
     using handler_type =
         detail::dynamic_specs_handler<basic_format_parse_context<charT>>;
@@ -131,15 +137,13 @@ template <class charT> struct formatter<std::complex<double>, charT> {
                                           FormatContext& ctx) {
     detail::handle_dynamic_spec<detail::precision_checker>(
         specs_.precision, specs_.precision_ref, ctx);
-    auto format_specs = std::string();
-    if (specs_.precision > 0)
-      format_specs = fmt::format(".{}", specs_.precision);
-    if (specs_.type)
-      format_specs += specs_.type;
+    auto specs = std::string();
+    if (specs_.precision > 0) specs = fmt::format(".{}", specs_.precision);
+    if (specs_.type) specs += specs_.type;
     auto real = fmt::format(ctx.locale().template get<std::locale>(),
-                            "{:" + format_specs + "}", c.real());
+                            "{:" + specs + "}", c.real());
     auto imag = fmt::format(ctx.locale().template get<std::locale>(),
-                            "{:" + format_specs + "}", c.imag());
+                            "{:" + specs + "}", c.imag());
     auto fill_align_width = std::string();
     if (specs_.width > 0)
       fill_align_width = fmt::format(">{}", specs_.width);
