@@ -203,6 +203,8 @@ The available integer presentation types are:
 |         | ``'#'`` option with this type adds the prefix ``"0B"``   |
 |         | to the output value.                                     |
 +---------+----------------------------------------------------------+
+| ``'c'`` | Character format. Outputs the number as a character.     |
++---------+----------------------------------------------------------+
 | ``'d'`` | Decimal integer. Outputs the number in base 10.          |
 +---------+----------------------------------------------------------+
 | ``'o'`` | Octal format. Outputs the number in base 8.              |
@@ -260,10 +262,8 @@ The available presentation types for floating-point values are:
 |         | ``'E'`` if the number gets too large. The                |
 |         | representations of infinity and NaN are uppercased, too. |
 +---------+----------------------------------------------------------+
-| none    | Similar to ``'g'``, except that fixed-point notation,    |
-|         | when used, has at least one digit past the decimal       |
-|         | point. The default precision is as high as needed to     |
-|         | represent the particular value.                          |
+| none    | Similar to ``'g'``, except that the default precision is |
+|         | as high as needed to represent the particular value.     |
 +---------+----------------------------------------------------------+
 
 .. ifconfig:: False
